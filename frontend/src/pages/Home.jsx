@@ -3,62 +3,107 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
 const CATEGORIES = ['Conference', 'Workshop', 'Concert', 'Sports', 'Festival', 'Networking', 'Exhibition', 'Webinar'];
+const CAT_ICONS = { Conference: '🎯', Workshop: '🛠️', Concert: '🎵', Sports: '⚽', Festival: '🎉', Networking: '🤝', Exhibition: '🖼️', Webinar: '💻' };
 
-const categoryIcons = { Conference: '🎯', Workshop: '🛠️', Concert: '🎵', Sports: '⚽', Festival: '🎉', Networking: '🤝', Exhibition: '🖼️', Webinar: '💻' };
+function formatDate(event) {
+  const s = new Date(event.date);
+  const fmt = (d, o) => d.toLocaleDateString('en-IN', o);
+  if (event.isMultiDay && event.endDate) {
+    const e = new Date(event.endDate);
+    const sm = fmt(s, { month: 'short' }), em = fmt(e, { month: 'short' });
+    if (sm === em) return `${s.getDate()}–${e.getDate()} ${sm} ${fmt(e, { year: 'numeric' })}`;
+    return `${fmt(s, { day: 'numeric', month: 'short' })} – ${fmt(e, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  return fmt(s, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export function EventCard({ event }) {
+  const price = event.price === 0 ? 'Free' : `₹${event.price.toLocaleString()}`;
+  const numDays = event.isMultiDay && event.endDate
+    ? Math.ceil((new Date(event.endDate) - new Date(event.date)) / 86400000) + 1 : 1;
+
+  return (
+    <Link to={`/events/${event._id}`} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Image */}
+      <div style={{ height: 160, background: '#f1f0ee', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {event.image
+          ? <img src={event.image} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span style={{ fontSize: 36, opacity: 0.5 }}>{CAT_ICONS[event.category] || '📅'}</span>
+        }
+        <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6 }}>
+          <span className={`badge ${event.price === 0 ? 'badge-green' : 'badge-blue'}`}>{price}</span>
+          {event.isMultiDay && <span className="badge badge-purple">{numDays} days</span>}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span className="badge badge-gray">{event.category}</span>
+          {event.featured && <span className="badge badge-yellow">Featured</span>}
+        </div>
+
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 }}>{event.title}</h3>
+
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 5, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+          <Row icon="📅" text={`${formatDate(event)}${!event.isMultiDay && event.time ? ` · ${event.time}` : ''}`} />
+          <Row icon="📍" text={`${event.location?.venue}, ${event.location?.city}`} />
+          <Row icon="🎟️" text={`${event.availableSeats} seats available`} color={event.availableSeats < 20 ? 'var(--danger)' : 'var(--success)'} />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+const Row = ({ icon, text, color }) => (
+  <div style={{ display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12, color: color || 'var(--text-secondary)' }}>
+    <span style={{ flexShrink: 0, marginTop: 1 }}>{icon}</span>
+    <span style={{ lineHeight: 1.4 }}>{text}</span>
+  </div>
+);
 
 export default function Home() {
-  const [featuredEvents, setFeaturedEvents] = useState([]);
-  const [stats, setStats] = useState({ events: 0, users: 0, cities: 0 });
+  const [featured, setFeatured] = useState([]);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get('/events/featured').then(({ data }) => setFeaturedEvents(data.events || [])).catch(() => {});
-    api.get('/events?limit=3').then(({ data }) => setStats(s => ({ ...s, events: data.total || 0 }))).catch(() => {});
+    api.get('/events/featured').then(({ data }) => setFeatured(data.events || [])).catch(() => {});
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (search.trim()) navigate(`/events?search=${search}`);
-    else navigate('/events');
+    navigate(search.trim() ? `/events?search=${search}` : '/events');
   };
 
   return (
     <div>
       {/* Hero */}
-      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden', paddingTop: 80 }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,158,11,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '20%', right: '-10%', width: 500, height: 500, background: 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-        <div className="container" style={{ position: 'relative', zIndex: 1, paddingTop: 60, paddingBottom: 80 }}>
-          <div style={{ maxWidth: 700 }}>
-            <div className="badge badge-gold" style={{ marginBottom: 24, fontSize: 13 }}>✨ India's Premier Event Platform</div>
-            <h1 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(42px, 7vw, 80px)', fontWeight: 700, lineHeight: 1.1, marginBottom: 24 }}>
-              Discover<br />
-              <em style={{ color: '#f59e0b', fontStyle: 'italic' }}>Extraordinary</em><br />
-              Events
+      <section style={{ background: 'white', borderBottom: '1px solid var(--border)', paddingTop: 100, paddingBottom: 72 }}>
+        <div className="container">
+          <div style={{ maxWidth: 600 }}>
+            <span className="badge badge-blue" style={{ marginBottom: 16, fontSize: 12 }}>India's Event Platform</span>
+            <h1 style={{ fontSize: 'clamp(36px, 6vw, 60px)', fontWeight: 700, lineHeight: 1.1, marginBottom: 16 }}>
+              Find events<br /><em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>worth attending</em>
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: 18, marginBottom: 40, maxWidth: 500, lineHeight: 1.7 }}>
-              From intimate workshops to massive festivals — find and book the events that define your story.
+            <p style={{ color: 'var(--text-secondary)', fontSize: 16, marginBottom: 32, maxWidth: 460, lineHeight: 1.7 }}>
+              Conferences, workshops, concerts and more — discover and book events happening near you.
             </p>
 
-            {/* Search bar */}
-            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 0, maxWidth: 540, background: '#1a2235', border: '1px solid #334155', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 0, maxWidth: 480, background: 'var(--bg)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
               <input
-                type="text"
-                placeholder="Search events, concerts, workshops..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ flex: 1, background: 'none', border: 'none', padding: '16px 20px', color: '#f1f5f9', fontSize: 15, fontFamily: 'DM Sans', outline: 'none' }}
+                type="text" placeholder="Search events..."
+                value={search} onChange={e => setSearch(e.target.value)}
+                style={{ flex: 1, background: 'none', border: 'none', padding: '12px 16px', fontSize: 14, fontFamily: 'var(--font-body)', color: 'var(--text-primary)', outline: 'none' }}
               />
-              <button type="submit" className="btn btn-primary" style={{ borderRadius: 0, padding: '16px 24px' }}>Search</button>
+              <button type="submit" className="btn btn-primary" style={{ borderRadius: 0, padding: '12px 20px' }}>Search</button>
             </form>
 
-            <div style={{ display: 'flex', gap: 32, marginTop: 40 }}>
-              {[['500+', 'Events'], ['50K+', 'Attendees'], ['20+', 'Cities']].map(([num, label]) => (
-                <div key={label}>
-                  <p style={{ fontFamily: 'Playfair Display', fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{num}</p>
-                  <p style={{ color: '#94a3b8', fontSize: 13 }}>{label}</p>
+            <div style={{ display: 'flex', gap: 36, marginTop: 40 }}>
+              {[['500+', 'Events'], ['50K+', 'Attendees'], ['20+', 'Cities']].map(([n, l]) => (
+                <div key={l}>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>{n}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{l}</p>
                 </div>
               ))}
             </div>
@@ -67,23 +112,19 @@ export default function Home() {
       </section>
 
       {/* Categories */}
-      <section style={{ padding: '80px 0', background: '#111827' }}>
+      <section style={{ padding: '60px 0', borderBottom: '1px solid var(--border)' }}>
         <div className="container">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
-            <div>
-              <h2 className="section-title">Browse by Category</h2>
-              <p className="section-subtitle">Find exactly what you're looking for</p>
-            </div>
-            <Link to="/events" className="btn btn-outline">View All</Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}>Browse by category</h2>
+            <Link to="/events" className="btn btn-ghost btn-sm">View all →</Link>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
             {CATEGORIES.map(cat => (
-              <Link key={cat} to={`/events?category=${cat}`}
-                style={{ background: '#1a2235', border: '1px solid #1e293b', borderRadius: 12, padding: '20px 16px', textAlign: 'center', transition: 'all 0.2s', display: 'block' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#f59e0b'; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.background = '#1f2a40'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#1e293b'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = '#1a2235'; }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>{categoryIcons[cat]}</div>
-                <p style={{ fontSize: 13, fontWeight: 500, color: '#94a3b8' }}>{cat}</p>
+              <Link key={cat} to={`/events?category=${cat}`} style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '16px 12px', textAlign: 'center', transition: 'all 0.15s', display: 'block' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-light)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'white'; }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>{CAT_ICONS[cat]}</div>
+                <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{cat}</p>
               </Link>
             ))}
           </div>
@@ -91,114 +132,31 @@ export default function Home() {
       </section>
 
       {/* Featured Events */}
-      {featuredEvents.length > 0 && (
-        <section style={{ padding: '80px 0' }}>
+      {featured.length > 0 && (
+        <section style={{ padding: '60px 0' }}>
           <div className="container">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
-              <div>
-                <h2 className="section-title">Featured Events</h2>
-                <p className="section-subtitle">Handpicked experiences you won't want to miss</p>
-              </div>
-              <Link to="/events" className="btn btn-outline">See All Events</Link>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}>Featured events</h2>
+              <Link to="/events" className="btn btn-ghost btn-sm">All events →</Link>
             </div>
             <div className="events-grid">
-              {featuredEvents.slice(0, 3).map(event => (
-                <EventCard key={event._id} event={event} />
-              ))}
+              {featured.slice(0, 3).map(e => <EventCard key={e._id} event={e} />)}
             </div>
           </div>
         </section>
       )}
 
       {/* CTA */}
-      <section style={{ padding: '80px 24px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(10,14,26,0) 100%)', borderTop: '1px solid #1e293b', borderBottom: '1px solid #1e293b' }}>
-        <h2 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(28px, 5vw, 48px)', marginBottom: 16 }}>Ready to Experience More?</h2>
-        <p style={{ color: '#94a3b8', fontSize: 16, marginBottom: 32 }}>Join thousands of event-goers who use EventSphere every day.</p>
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/register" className="btn btn-primary btn-lg">Create Free Account</Link>
-          <Link to="/events" className="btn btn-outline btn-lg">Browse Events</Link>
+      <section style={{ background: 'var(--accent)', padding: '60px 24px', textAlign: 'center' }}>
+        <div style={{ maxWidth: 500, margin: '0 auto' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 30, color: 'white', marginBottom: 12 }}>Ready to get started?</h2>
+          <p style={{ color: 'rgba(255,255,255,0.8)', marginBottom: 28, fontSize: 15 }}>Create a free account and start discovering events.</p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <Link to="/register" style={{ background: 'white', color: 'var(--accent)', padding: '11px 24px', borderRadius: 'var(--radius-sm)', fontWeight: 600, fontSize: 14, transition: 'opacity 0.15s' }}>Create account</Link>
+            <Link to="/events" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', padding: '11px 24px', borderRadius: 'var(--radius-sm)', fontWeight: 500, fontSize: 14, border: '1px solid rgba(255,255,255,0.3)' }}>Browse events</Link>
+          </div>
         </div>
       </section>
     </div>
-  );
-}
-
-// Helper: format date range for multi-day events
-function formatEventDate(event) {
-  const startDate = new Date(event.date);
-  const fmt = (d, opts) => d.toLocaleDateString('en-IN', opts);
-
-  if (event.isMultiDay && event.endDate) {
-    const endDate = new Date(event.endDate);
-    const startMonth = fmt(startDate, { month: 'short' });
-    const endMonth = fmt(endDate, { month: 'short' });
-    const year = fmt(endDate, { year: 'numeric' });
-    // Same month: "12–14 Mar 2025", different month: "28 Mar – 2 Apr 2025"
-    if (startMonth === endMonth) {
-      return `${startDate.getDate()}–${endDate.getDate()} ${startMonth} ${year}`;
-    }
-    return `${fmt(startDate, { day: 'numeric', month: 'short' })} – ${fmt(endDate, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  }
-  return fmt(startDate, { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-export function EventCard({ event }) {
-  const price = event.price === 0 ? 'Free' : `₹${event.price.toLocaleString()}`;
-  const date = formatEventDate(event);
-  const seatsLeft = event.availableSeats;
-
-  // Calculate number of days
-  const numDays = event.isMultiDay && event.endDate
-    ? Math.ceil((new Date(event.endDate) - new Date(event.date)) / (1000 * 60 * 60 * 24)) + 1
-    : 1;
-
-  return (
-    <Link to={`/events/${event._id}`} className="card" style={{ display: 'block' }}>
-      <div style={{ height: 180, background: 'linear-gradient(135deg, #1a2235, #1f2a40)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        {event.image ? (
-          <img src={event.image} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <span style={{ fontSize: 48 }}>{categoryIcons[event.category] || '🎪'}</span>
-        )}
-        <div style={{ position: 'absolute', top: 12, right: 12 }}>
-          <span className={`badge ${event.price === 0 ? 'badge-green' : 'badge-gold'}`}>{price}</span>
-        </div>
-        {event.featured && (
-          <div style={{ position: 'absolute', top: 12, left: 12 }}>
-            <span className="badge badge-gold">⭐ Featured</span>
-          </div>
-        )}
-      </div>
-      <div style={{ padding: 20 }}>
-        <span className="badge badge-gray" style={{ marginBottom: 10, fontSize: 11 }}>{event.category}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-          <h3 style={{ fontFamily: 'Playfair Display', fontSize: 18, fontWeight: 600, lineHeight: 1.3 }}>{event.title}</h3>
-          {event.isMultiDay && (
-            <span style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 100, padding: '2px 10px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
-              🗓️ {numDays} Days
-            </span>
-          )}
-        </div>
-        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{event.description}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', fontSize: 13 }}>
-            <span>📅</span>
-            <span>{date}{!event.isMultiDay && event.time ? ` · ${event.time}` : ''}</span>
-          </div>
-          {event.isMultiDay && event.time && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', fontSize: 13 }}>
-              <span>⏰</span>
-              <span>Daily {event.time}{event.endTime ? ` – ${event.endTime}` : ''}</span>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', fontSize: 13 }}>
-            <span>📍</span><span>{event.location?.venue}, {event.location?.city}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: seatsLeft < 20 ? '#ef4444' : '#10b981', fontSize: 13 }}>
-            <span>🎟️</span><span>{seatsLeft} seats left</span>
-          </div>
-        </div>
-      </div>
-    </Link>
   );
 }

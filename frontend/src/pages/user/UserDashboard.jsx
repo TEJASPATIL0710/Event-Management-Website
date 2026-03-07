@@ -14,62 +14,55 @@ export default function UserDashboard() {
 
   const confirmed = bookings.filter(b => b.status === 'confirmed');
   const upcoming = confirmed.filter(b => b.event && new Date(b.event.date) >= new Date());
-  const past = confirmed.filter(b => b.event && new Date(b.event.date) < new Date());
   const totalSpent = confirmed.reduce((s, b) => s + b.totalAmount, 0);
 
   return (
-    <div style={{ paddingTop: 90, minHeight: '100vh' }}>
-      <div className="container" style={{ padding: '40px 24px' }}>
-        {/* Welcome header */}
-        <div style={{ background: 'linear-gradient(135deg, #1a2235, #1f2a40)', border: '1px solid #1e293b', borderRadius: 20, padding: '32px 36px', marginBottom: 32, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Playfair Display', fontWeight: 700, fontSize: 28, color: '#0a0e1a', flexShrink: 0 }}>
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 style={{ fontFamily: 'Playfair Display', fontSize: 28, marginBottom: 4 }}>Hey, {user?.name?.split(' ')[0]}! 👋</h1>
-              <p style={{ color: '#94a3b8' }}>{user?.email} · Member since {new Date(user?.createdAt || Date.now()).getFullYear()}</p>
-            </div>
+    <div className="page-wrap">
+      <div className="container" style={{ padding: '32px 24px' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32, paddingBottom: 24, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)', flexShrink: 0 }}>
+            {user?.name?.charAt(0).toUpperCase()}
           </div>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700 }}>Hello, {user?.name?.split(' ')[0]}!</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{user?.email}</p>
+          </div>
+          <Link to="/events" className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }}>Browse events</Link>
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 36 }}>
           {[
-            { label: 'Total Bookings', value: confirmed.length, icon: '🎟️', color: '#f59e0b' },
-            { label: 'Upcoming Events', value: upcoming.length, icon: '📅', color: '#10b981' },
-            { label: 'Past Events', value: past.length, icon: '✅', color: '#3b82f6' },
-            { label: 'Total Spent', value: `₹${totalSpent.toLocaleString()}`, icon: '💰', color: '#a78bfa' },
-          ].map(({ label, value, icon, color }) => (
-            <div key={label} style={{ background: '#1a2235', border: '1px solid #1e293b', borderRadius: 14, padding: 20 }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-              <p style={{ fontFamily: 'Playfair Display', fontSize: 26, fontWeight: 700, color, marginBottom: 4 }}>{value}</p>
-              <p style={{ color: '#64748b', fontSize: 13 }}>{label}</p>
+            { label: 'Total bookings', value: confirmed.length },
+            { label: 'Upcoming events', value: upcoming.length },
+            { label: 'Past events', value: confirmed.length - upcoming.length },
+            { label: 'Total spent', value: totalSpent === 0 ? 'Free!' : `₹${totalSpent.toLocaleString()}` },
+          ].map(({ label, value }) => (
+            <div key={label} className="stat-card">
+              <p className="stat-value">{value}</p>
+              <p className="stat-label">{label}</p>
             </div>
           ))}
         </div>
 
-        {/* Quick actions */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 40, flexWrap: 'wrap' }}>
-          <Link to="/events" className="btn btn-primary">🔍 Browse Events</Link>
-          <Link to="/my-bookings" className="btn btn-outline">📋 My Bookings</Link>
+        {/* Upcoming bookings */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700 }}>Upcoming events</h2>
+          <Link to="/my-bookings" className="btn btn-ghost btn-sm">View all →</Link>
         </div>
 
-        {/* Upcoming events */}
-        <h2 style={{ fontFamily: 'Playfair Display', fontSize: 24, marginBottom: 20 }}>Upcoming Events</h2>
         {loading ? <div className="spinner" /> : upcoming.length === 0 ? (
           <div className="empty-state">
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🎪</div>
+            <p style={{ fontSize: 32, marginBottom: 10 }}>📅</p>
             <h3>No upcoming events</h3>
-            <p>Browse events and book your next experience!</p>
-            <Link to="/events" className="btn btn-primary" style={{ marginTop: 20 }}>Explore Events</Link>
+            <p>Browse events and book your next experience</p>
+            <Link to="/events" className="btn btn-primary btn-sm" style={{ marginTop: 16 }}>Explore events</Link>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {upcoming.map(booking => (
-              <BookingRow key={booking._id} booking={booking} />
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {upcoming.map(b => <BookingRow key={b._id} booking={b} />)}
           </div>
         )}
       </div>
@@ -78,23 +71,24 @@ export default function UserDashboard() {
 }
 
 function BookingRow({ booking }) {
-  const event = booking.event;
-  if (!event) return null;
-  const date = new Date(event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const e = booking.event;
+  if (!e) return null;
+  const date = new Date(e.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <div style={{ background: '#1a2235', border: '1px solid #1e293b', borderRadius: 14, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+    <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
       <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <h3 style={{ fontFamily: 'Playfair Display', fontSize: 18 }}>{event.title}</h3>
-          <span className={`badge ${booking.status === 'confirmed' ? 'badge-green' : 'badge-red'}`}>{booking.status}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <p style={{ fontWeight: 600, fontSize: 15 }}>{e.title}</p>
+          <span className="badge badge-green">{booking.status}</span>
         </div>
-        <p style={{ color: '#94a3b8', fontSize: 13 }}>📅 {date} · 📍 {event.location?.city} · 🎟️ {booking.seats} seat{booking.seats > 1 ? 's' : ''}</p>
-        <p style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Ref: {booking.bookingReference}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {date} · {e.location?.city} · {booking.seats} seat{booking.seats > 1 ? 's' : ''} · Ref: {booking.bookingReference}
+        </p>
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <p style={{ fontFamily: 'Playfair Display', fontSize: 20, color: '#f59e0b', fontWeight: 700 }}>{booking.totalAmount === 0 ? 'FREE' : `₹${booking.totalAmount.toLocaleString()}`}</p>
-        <Link to={`/events/${event._id}`} className="btn btn-ghost btn-sm" style={{ marginTop: 8 }}>View Event</Link>
+      <div style={{ display: 'flex', align: 'center', gap: 10 }}>
+        <p style={{ fontWeight: 700, fontSize: 16 }}>{booking.totalAmount === 0 ? 'Free' : `₹${booking.totalAmount.toLocaleString()}`}</p>
+        <Link to={`/events/${e._id}`} className="btn btn-ghost btn-sm">View</Link>
       </div>
     </div>
   );

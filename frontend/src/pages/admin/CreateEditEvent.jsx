@@ -6,18 +6,15 @@ import api from '../../utils/api';
 const CATEGORIES = ['Conference', 'Workshop', 'Concert', 'Sports', 'Festival', 'Networking', 'Exhibition', 'Webinar', 'Other'];
 
 const defaultForm = {
-  title: '', description: '', category: 'Conference',
-  date: '', endDate: '', time: '', endTime: '',
-  isMultiDay: false,
+  title: '', description: '', category: 'Conference', status: 'upcoming',
+  date: '', endDate: '', time: '', endTime: '', isMultiDay: false,
   location: { venue: '', address: '', city: '', state: '', country: 'India' },
-  price: 0, totalSeats: 100,
-  image: '', tags: '', featured: false, status: 'upcoming'
+  price: 0, totalSeats: 100, image: '', tags: '', featured: false
 };
 
-// Outside component to prevent remount on re-render
 const Section = ({ title, children }) => (
-  <div style={{ background: '#1a2235', border: '1px solid #1e293b', borderRadius: 16, padding: 28, marginBottom: 20 }}>
-    <h2 style={{ fontFamily: 'Playfair Display', fontSize: 20, marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid #1e293b' }}>{title}</h2>
+  <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 24, marginBottom: 16 }}>
+    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>{title}</h2>
     {children}
   </div>
 );
@@ -35,32 +32,18 @@ export default function CreateEditEvent() {
       api.get(`/events/${id}`).then(({ data }) => {
         const e = data.event;
         setForm({
-          title: e.title || '',
-          description: e.description || '',
-          category: e.category || 'Conference',
+          title: e.title || '', description: e.description || '',
+          category: e.category || 'Conference', status: e.status || 'upcoming',
           date: e.date ? e.date.split('T')[0] : '',
           endDate: e.endDate ? e.endDate.split('T')[0] : '',
-          time: e.time || '',
-          endTime: e.endTime || '',
+          time: e.time || '', endTime: e.endTime || '',
           isMultiDay: e.isMultiDay || false,
-          location: {
-            venue: e.location?.venue || '',
-            address: e.location?.address || '',
-            city: e.location?.city || '',
-            state: e.location?.state || '',
-            country: e.location?.country || 'India'
-          },
-          price: e.price || 0,
-          totalSeats: e.totalSeats || 100,
-          image: e.image || '',
-          tags: e.tags?.join(', ') || '',
-          featured: e.featured || false,
-          status: e.status || 'upcoming'
+          location: { venue: e.location?.venue || '', address: e.location?.address || '', city: e.location?.city || '', state: e.location?.state || '', country: e.location?.country || 'India' },
+          price: e.price || 0, totalSeats: e.totalSeats || 100,
+          image: e.image || '', tags: e.tags?.join(', ') || '', featured: e.featured || false
         });
-      }).catch(() => {
-        toast.error('Event not found');
-        navigate('/admin/events');
-      }).finally(() => setFetching(false));
+      }).catch(() => { toast.error('Event not found'); navigate('/admin/events'); })
+      .finally(() => setFetching(false));
     }
   }, [id, isEdit, navigate]);
 
@@ -68,10 +51,7 @@ export default function CreateEditEvent() {
     const { name, value, type, checked } = e.target;
     setForm(prev => {
       const updated = { ...prev, [name]: type === 'checkbox' ? checked : value };
-      // If toggling multi-day OFF, clear endDate
-      if (name === 'isMultiDay' && !checked) {
-        updated.endDate = '';
-      }
+      if (name === 'isMultiDay' && !checked) updated.endDate = '';
       return updated;
     });
   }, []);
@@ -81,73 +61,57 @@ export default function CreateEditEvent() {
     setForm(prev => ({ ...prev, location: { ...prev.location, [name]: value } }));
   }, []);
 
+  const toggleMultiDay = () => {
+    setForm(prev => ({ ...prev, isMultiDay: !prev.isMultiDay, endDate: prev.isMultiDay ? '' : prev.endDate }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate end date is after start date for multi-day
-    if (form.isMultiDay && form.endDate) {
-      if (new Date(form.endDate) <= new Date(form.date)) {
-        toast.error('End date must be after start date');
-        return;
-      }
+    if (form.isMultiDay && form.endDate && new Date(form.endDate) <= new Date(form.date)) {
+      toast.error('End date must be after start date'); return;
     }
-
     setLoading(true);
     try {
       const payload = {
-        ...form,
-        price: Number(form.price),
-        totalSeats: Number(form.totalSeats),
+        ...form, price: Number(form.price), totalSeats: Number(form.totalSeats),
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         endDate: form.isMultiDay && form.endDate ? form.endDate : null
       };
-      if (isEdit) {
-        await api.put(`/admin/events/${id}`, payload);
-        toast.success('Event updated successfully!');
-      } else {
-        await api.post('/admin/events', payload);
-        toast.success('Event created successfully!');
-      }
+      if (isEdit) { await api.put(`/admin/events/${id}`, payload); toast.success('Event updated!'); }
+      else { await api.post('/admin/events', payload); toast.success('Event created!'); }
       navigate('/admin/events');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save event');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Calculate number of days for preview
   const numDays = form.isMultiDay && form.date && form.endDate
-    ? Math.ceil((new Date(form.endDate) - new Date(form.date)) / (1000 * 60 * 60 * 24)) + 1
-    : 1;
+    ? Math.ceil((new Date(form.endDate) - new Date(form.date)) / 86400000) + 1 : 1;
 
   if (fetching) return <div className="spinner" style={{ marginTop: 120 }} />;
 
   return (
-    <div style={{ paddingTop: 90, minHeight: '100vh' }}>
-      <div className="container" style={{ padding: '40px 24px', maxWidth: 840 }}>
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontFamily: 'Playfair Display', fontSize: 36, marginBottom: 8 }}>
-            {isEdit ? 'Edit Event' : 'Create New Event'}
+    <div className="page-wrap">
+      <div className="container" style={{ padding: '32px 24px', maxWidth: 820 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/events')}>← Back</button>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700 }}>
+            {isEdit ? 'Edit Event' : 'Create Event'}
           </h1>
-          <p style={{ color: '#94a3b8' }}>
-            {isEdit ? `Editing event ID: ${id}` : 'Fill in the details to publish a new event'}
-          </p>
         </div>
 
         <form onSubmit={handleSubmit}>
-
-          {/* Basic Information */}
+          {/* Basic info */}
           <Section title="Basic Information">
             <div className="form-group">
-              <label>Event Title *</label>
+              <label>Event title *</label>
               <input className="form-control" name="title" required placeholder="e.g. Tech Summit 2025" value={form.title} onChange={handleChange} />
             </div>
             <div className="form-group">
               <label>Description *</label>
-              <textarea className="form-control" name="description" required rows={5} placeholder="Describe the event in detail..." value={form.description} onChange={handleChange} />
+              <textarea className="form-control" name="description" required rows={4} placeholder="Describe the event..." value={form.description} onChange={handleChange} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div className="form-group">
                 <label>Category *</label>
                 <select className="form-control" name="category" value={form.category} onChange={handleChange}>
@@ -170,89 +134,55 @@ export default function CreateEditEvent() {
             </div>
             <div className="form-group">
               <label>Tags (comma-separated)</label>
-              <input className="form-control" name="tags" placeholder="technology, AI, innovation" value={form.tags} onChange={handleChange} />
+              <input className="form-control" name="tags" placeholder="technology, AI, networking" value={form.tags} onChange={handleChange} />
             </div>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input type="checkbox" id="featured" name="featured" checked={form.featured} onChange={handleChange} style={{ width: 16, height: 16, accentColor: '#f59e0b', cursor: 'pointer' }} />
-                <label htmlFor="featured" style={{ cursor: 'pointer', color: '#94a3b8', fontSize: 14 }}>⭐ Mark as Featured</label>
-              </div>
-            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text-secondary)', userSelect: 'none' }}>
+              <input type="checkbox" name="featured" checked={form.featured} onChange={handleChange} style={{ width: 15, height: 15, accentColor: 'var(--accent)', cursor: 'pointer' }} />
+              Mark as featured event
+            </label>
           </Section>
 
           {/* Date & Time */}
           <Section title="Date & Time">
-
             {/* Multi-day toggle */}
-            <div style={{ background: form.isMultiDay ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${form.isMultiDay ? 'rgba(245,158,11,0.3)' : '#1e293b'}`, borderRadius: 10, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 18 }}>
               <div>
-                <p style={{ fontWeight: 500, marginBottom: 2 }}>📅 Multi-Day Event</p>
-                <p style={{ color: '#64748b', fontSize: 13 }}>Enable if the event spans more than one day (e.g. 3-day festival, 2-day conference)</p>
+                <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>Multi-day event</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Enable for events spanning 2+ days</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({ ...prev, isMultiDay: !prev.isMultiDay, endDate: prev.isMultiDay ? '' : prev.endDate }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <div style={{ position: 'relative', width: 44, height: 24, flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', inset: 0, background: form.isMultiDay ? '#f59e0b' : '#334155', borderRadius: 12, transition: 'background 0.25s' }} />
-                  <div style={{ position: 'absolute', top: 3, left: form.isMultiDay ? 23 : 3, width: 18, height: 18, background: 'white', borderRadius: '50%', transition: 'left 0.25s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: form.isMultiDay ? '#f59e0b' : '#64748b', fontFamily: 'DM Sans' }}>
-                  {form.isMultiDay ? 'ON' : 'OFF'}
-                </span>
+              <button type="button" onClick={toggleMultiDay}
+                style={{ position: 'relative', width: 42, height: 22, borderRadius: 11, background: form.isMultiDay ? 'var(--accent)' : '#d1d5db', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: form.isMultiDay ? 22 : 3, width: 16, height: 16, background: 'white', borderRadius: '50%', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
               </button>
             </div>
 
-            {/* Date fields */}
-            <div style={{ display: 'grid', gridTemplateColumns: form.isMultiDay ? '1fr 1fr' : '1fr 1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: form.isMultiDay ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 14 }}>
               <div className="form-group">
-                <label>{form.isMultiDay ? 'Start Date *' : 'Date *'}</label>
+                <label>{form.isMultiDay ? 'Start date *' : 'Date *'}</label>
                 <input className="form-control" name="date" type="date" required value={form.date} onChange={handleChange} />
               </div>
-
               {form.isMultiDay && (
                 <div className="form-group">
-                  <label>End Date *</label>
-                  <input className="form-control" name="endDate" type="date" required={form.isMultiDay} min={form.date || ''} value={form.endDate} onChange={handleChange} />
+                  <label>End date *</label>
+                  <input className="form-control" name="endDate" type="date" required min={form.date || ''} value={form.endDate} onChange={handleChange} />
                 </div>
               )}
-
-              {!form.isMultiDay && (
-                <>
-                  <div className="form-group">
-                    <label>Start Time *</label>
-                    <input className="form-control" name="time" type="time" required value={form.time} onChange={handleChange} />
-                  </div>
-                  <div className="form-group">
-                    <label>End Time</label>
-                    <input className="form-control" name="endTime" type="time" value={form.endTime} onChange={handleChange} />
-                  </div>
-                </>
-              )}
+              <div className="form-group">
+                <label>{form.isMultiDay ? 'Daily start time *' : 'Start time *'}</label>
+                <input className="form-control" name="time" type="time" required value={form.time} onChange={handleChange} />
+              </div>
+              <div className="form-group">
+                <label>{form.isMultiDay ? 'Daily end time' : 'End time'}</label>
+                <input className="form-control" name="endTime" type="time" value={form.endTime} onChange={handleChange} />
+              </div>
             </div>
 
-            {/* Multi-day time row */}
-            {form.isMultiDay && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div className="form-group">
-                  <label>Daily Start Time *</label>
-                  <input className="form-control" name="time" type="time" required value={form.time} onChange={handleChange} />
-                </div>
-                <div className="form-group">
-                  <label>Daily End Time</label>
-                  <input className="form-control" name="endTime" type="time" value={form.endTime} onChange={handleChange} />
-                </div>
-              </div>
-            )}
-
-            {/* Duration preview badge */}
             {form.isMultiDay && numDays > 1 && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 14px' }}>
-                <span style={{ fontSize: 16 }}>🗓️</span>
-                <span style={{ color: '#f59e0b', fontWeight: 600 }}>{numDays}-Day Event</span>
-                <span style={{ color: '#94a3b8', fontSize: 13 }}>
-                  {new Date(form.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} → {new Date(form.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--accent-light)', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-sm)', padding: '6px 12px', fontSize: 13, color: 'var(--accent)' }}>
+                <span>📅</span>
+                <span style={{ fontWeight: 600 }}>{numDays}-day event</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {new Date(form.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(form.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
               </div>
             )}
@@ -260,9 +190,9 @@ export default function CreateEditEvent() {
 
           {/* Location */}
           <Section title="Location">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div className="form-group">
-                <label>Venue Name *</label>
+                <label>Venue name *</label>
                 <input className="form-control" name="venue" required placeholder="e.g. Bombay Exhibition Centre" value={form.location.venue} onChange={handleLocationChange} />
               </div>
               <div className="form-group">
@@ -271,10 +201,10 @@ export default function CreateEditEvent() {
               </div>
             </div>
             <div className="form-group">
-              <label>Full Address *</label>
+              <label>Full address *</label>
               <input className="form-control" name="address" required placeholder="Street, locality..." value={form.location.address} onChange={handleLocationChange} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div className="form-group">
                 <label>State</label>
                 <input className="form-control" name="state" placeholder="Maharashtra" value={form.location.state} onChange={handleLocationChange} />
@@ -286,29 +216,24 @@ export default function CreateEditEvent() {
             </div>
           </Section>
 
-          {/* Tickets & Pricing */}
+          {/* Tickets */}
           <Section title="Tickets & Pricing">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div className="form-group">
-                <label>Price (₹) — Set 0 for Free</label>
+                <label>Price (₹) — 0 for free</label>
                 <input className="form-control" name="price" type="number" min="0" value={form.price} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label>Total Seats *</label>
+                <label>Total seats *</label>
                 <input className="form-control" name="totalSeats" type="number" min="1" required value={form.totalSeats} onChange={handleChange} />
               </div>
             </div>
-            {form.isMultiDay && (
-              <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                💡 Ticket price covers the full {numDays > 1 ? `${numDays}-day` : 'multi-day'} event. Seats are per-person for the entire duration.
-              </p>
-            )}
           </Section>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-ghost" onClick={() => navigate('/admin/events')}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-              {loading ? 'Saving...' : isEdit ? 'Update Event' : 'Create Event'}
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Saving...' : isEdit ? 'Update event' : 'Create event'}
             </button>
           </div>
         </form>
